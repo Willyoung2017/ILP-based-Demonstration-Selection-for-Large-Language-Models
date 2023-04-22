@@ -1,0 +1,6 @@
+numpy
+aiohttp
+tqdm
+streamlit
+openai
+sentence-transformers
