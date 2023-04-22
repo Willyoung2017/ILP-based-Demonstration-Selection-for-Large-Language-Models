@@ -1,27 +1,26 @@
-# Copyright (c) Microsoft Corporation. Licensed under the MIT license. from
-# https://github.com/microsoft/task_oriented_dialogue_as_dataflow_synthesis/blob/master/src/dataflow/leaderboard
-# /evaluate.py
+#  Copyright (c) Microsoft Corporation.
+#  Licensed under the MIT license.
 """
 Semantic Machines\N{TRADE MARK SIGN} software.
+
 Evaluation script for the leaderboard.
 """
 import argparse
 import json
 from typing import Iterable, List, Optional, Set, Tuple
 
-from dataflow.core.dialogue import ProgramExecutionOracle
+from dataflow.core.dialogue import TurnId
 from dataflow.core.io_utils import load_jsonl_file
 from dataflow.core.lispress import try_round_trip
-from dataflow.core.turn_prediction import TurnPrediction, TurnAnswer, missing_prediction
-from dataset import TurnId
+from dataflow.core.turn_prediction import TurnAnswer, TurnPrediction, missing_prediction
 
 
 def evaluate_prediction_exact_match(
     pred: TurnPrediction, gold: TurnAnswer
 ) -> Tuple[bool, bool]:
     assert pred.datum_id == gold.datum_id, f"mismatched data: {pred}, {gold}"
-    pred_lispress = "".join(try_round_trip(pred.lispress).split())
-    gold_lispress = "".join(try_round_trip(gold.lispress).split())
+    pred_lispress = try_round_trip(pred.lispress)
+    gold_lispress = try_round_trip(gold.lispress)
     if pred_lispress != gold_lispress:
         print(
             f"Misprediction on {gold.datum_id.dialogue_id}:{gold.datum_id.turn_index} | {gold.user_utterance}\nPred: {pred_lispress}\nGold: {gold_lispress}\n"
@@ -86,22 +85,10 @@ def collate(
 
 
 def evaluate_prediction_file(
-    predictions_json: str, datum_ids_jsonl: Optional[str]
+    predictions_jsonl: str, gold_jsonl: str, datum_ids_jsonl: Optional[str]
 ) -> Tuple[float, float]:
-    all_data = []
-    preds = []
-    golds = []
-    with open(predictions_json, "r") as f:
-        for line in f:
-            pred = json.loads(line)
-            dialogue_id = pred["dialogue_id"]
-            turn_id = TurnId(dialogue_id=dialogue_id["dialogue_id"],
-                             turn_index=dialogue_id["turn_index"])
-            preds.append(TurnPrediction(datum_id=turn_id,
-                                        user_utterance=pred["user_utterance"], lispress=pred["prediction"]))
-            golds.append(TurnAnswer(datum_id=turn_id, user_utterance=pred["user_utterance"], lispress=pred["agent_utterance"],
-                                    program_execution_oracle=ProgramExecutionOracle(has_exception=False,
-                                                                                    refer_are_correct=True)))
+    preds = list(load_jsonl_file(predictions_jsonl, TurnPrediction, verbose=False))
+    golds = list(load_jsonl_file(gold_jsonl, TurnAnswer, verbose=False))
     datum_ids = (
         None
         if datum_ids_jsonl is None
@@ -112,12 +99,15 @@ def evaluate_prediction_file(
 
 def add_arguments(argument_parser: argparse.ArgumentParser) -> None:
     argument_parser.add_argument(
-        "--predictions_json", help="the predictions jsonl file to evaluate",
+        "--predictions_jsonl", help="the predictions jsonl file to evaluate",
+    )
+    argument_parser.add_argument(
+        "--gold_jsonl", help="the gold jsonl file to evaluate against",
     )
     argument_parser.add_argument(
         "--datum_ids_jsonl", default=None, help="if set, only evaluate on these turns",
     )
-    argument_parser.add_argument("--scores_json", default="score.json", help="output scores json file")
+    argument_parser.add_argument("--scores_json", help="output scores json file")
 
 
 def write_accuracy_json(
@@ -143,10 +133,10 @@ def main():
     args = cmdline_parser.parse_args()
 
     accuracies = evaluate_prediction_file(
-        predictions_json=args.predictions_json,
+        predictions_jsonl=args.predictions_jsonl,
+        gold_jsonl=args.gold_jsonl,
         datum_ids_jsonl=args.datum_ids_jsonl,
     )
-    print("Accuracy:", accuracies[0])
     write_accuracy_json(accuracies, args.scores_json)
 
 

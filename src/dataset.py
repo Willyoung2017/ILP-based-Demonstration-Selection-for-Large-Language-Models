@@ -13,7 +13,7 @@ from typing import List, Optional, Iterator
 class TurnIdEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, TurnId):
-            return str(obj)
+            return obj.to_dict()
         return super().default(obj)
 
 
@@ -25,8 +25,11 @@ class TurnId:
     def __hash__(self):
         return hash((self.dialogue_id, self.turn_index))
 
-    def __str__(self):
-        return f"{self.dialogue_id}_{self.turn_index}"
+    def to_dict(self):
+        return {
+            "dialogue_id": self.dialogue_id,
+            "turn_index": self.turn_index
+        }
 
 
 @dataclass

@@ -91,7 +91,7 @@ def main():
             responses = batch_few_shot_query(
                 prompts=prompts,
                 engine=args.engine,
-                max_tokens=32,
+                max_tokens=100,
                 stop_token='\n',
                 temperature=0.0,
                 top_p=1.0,
@@ -101,7 +101,7 @@ def main():
             responses = [few_shot_query(
                 prompt=prompt,
                 engine=args.engine,
-                max_tokens=32,
+                max_tokens=100,
                 stop_token='\n',
                 temperature=0.0,
                 top_p=1.0,
@@ -121,7 +121,8 @@ def main():
             )
 
     with open(args.output_path, 'w') as fout:
-        json.dump(raw_preds, fout, indent=2, cls=TurnIdEncoder)
+        for pred in raw_preds:
+            fout.write(json.dumps(pred, cls=TurnIdEncoder)+"\n")
     print(f'raw outputs saved to {args.output_path}')
 
 

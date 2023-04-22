@@ -3,7 +3,24 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from dataset import TurnId
+from dataflow.core.dialogue import (
+    Dialogue,
+    ProgramExecutionOracle,
+    TurnId,
+    UserUtterance,
+)
+
+
+@dataclass(frozen=True, eq=True, repr=True)
+class UtteranceWithContext:
+    """
+    A user utterance, with the dialogue history leading up to it.
+    This is the input to the lispress prediction task.
+    """
+
+    datum_id: TurnId
+    user_utterance: UserUtterance
+    context: Dialogue
 
 
 @dataclass(frozen=True, eq=True, repr=True)
