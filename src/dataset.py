@@ -39,13 +39,13 @@ class SMCExample:
     embedding: Optional[np.ndarray] = None
 
 
-
 class SMCDataset:
     def __init__(
             self,
-            smc_dir='data/smcalflow_cs/source_domain_with_target_num0',
+            smc_dir='data/smcalflow_cs/source_domain_with_target_num32',
             max_prompt_tokens: Optional[int] = None,
             embedding=None,
+            shuffle_train=True,
     ):
         self.train = self._load_questions(os.path.join(
             smc_dir, 'train.jsonl'))
@@ -59,7 +59,8 @@ class SMCDataset:
         if embedding is not None:
             self._load_embeddings(emb_name=embedding)
 
-        random.shuffle(self.train)
+        if shuffle_train:
+            random.shuffle(self.train)
 
     @staticmethod
     def _load_questions(path) -> List[SMCExample]:
@@ -86,4 +87,8 @@ class SMCDataset:
 
     def dev_examples(self) -> Iterator[SMCExample]:
         for example in self.dev:
+            yield example
+
+    def test_examples(self) -> Iterator[SMCExample]:
+        for example in self.test:
             yield example
