@@ -18,6 +18,21 @@ EMB_OPTIONS = [
     'openai'
 ]
 
+EVAL_SUBSETS = [
+    'val',
+    'test',
+    'val100_seed0',
+    'val100_seed1',
+    'val100_seed2',
+    'val100_seed3',
+    'val100_seed4',
+    'test100_seed0',
+    'test100_seed1',
+    'test100_seed2',
+    'test100_seed3',
+    'test100_seed4',
+]
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -25,14 +40,14 @@ def main():
     parser.add_argument('--emb', default='openai', choices=EMB_OPTIONS)
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
-    parser.add_argument('-n', '--n_shot', default=5, type=int, help='number of demonstrations')
+    parser.add_argument('-n', '--n_shot', default=24, type=int, help='number of demonstrations')
     parser.add_argument('-c', '--converter', default='question_only', help='example to code converter')
     parser.add_argument('-s', '--selector', default='fixed_random',
                         choices=['fixed_random', 'l2_topk', 'cos_topk'],
                         help='demonstration example selector')
     parser.add_argument('-e', '--engine', default='code-davinci-002')
     parser.add_argument('--max_prompt_tokens', default=100, type=int)
-    parser.add_argument('--max_eval_num', default=10, type=int)
+    parser.add_argument('--eval_subset', default='val100_seed0', choices=EVAL_SUBSETS)
     parser.add_argument('--batch_size', default=20, type=int)
     parser.add_argument('--batch_mode', default=True, type=bool_flag, nargs='?', const=True)
     parser.add_argument('--system_prompt', default=DEFAULT_SYSTEM_PROMPT)
@@ -57,10 +72,24 @@ def main():
         embedding=args.emb
     )
     train_examples = [example for example in dataset.train_examples()]
-    dev_examples = [example for example in dataset.dev_examples()]
 
-    if args.max_eval_num > 0:
-        dev_examples = dev_examples[:args.max_eval_num]
+    if 'val' in args.eval_subset:
+        eval_examples = [example for example in dataset.dev_examples()]
+    elif 'test' in args.eval_subset:
+        eval_examples = [example for example in dataset.test_examples()]
+    else:
+        raise ValueError(f'Unknown eval subset {args.eval_subset}')
+
+    if args.eval_subset not in ('val', 'test'):
+        with open('data/eval_subsets.json') as fin:
+            eval_subsets = json.load(fin)
+        turn_ids = eval_subsets[args.eval_subset]
+        turn_ids = {(d["dialogue_id"], d["turn_index"]) for d in turn_ids}
+        eval_examples = [example for example in eval_examples if
+                         (example.datum_id.dialogue_id, example.datum_id.turn_index) in turn_ids]
+
+    print('Number of train examples:', len(train_examples))
+    print('Number of eval examples:', len(eval_examples))
 
     selector_class = {
         'fixed_random': FixedRandomDemoSelection,
@@ -74,16 +103,16 @@ def main():
     )
 
     raw_preds = []
-    for i in trange(0, len(dev_examples), args.batch_size):
-        j = min(i + args.batch_size, len(dev_examples))
-        batch = dev_examples[i:j]
+    for i in trange(0, len(eval_examples), args.batch_size):
+        j = min(i + args.batch_size, len(eval_examples))
+        batch = eval_examples[i:j]
 
         prompts = [
             converter.example2code(demos=selector.get_demo(example), target=example)
             for example in batch
         ]
 
-        print(prompts[0])
+        # print(prompts[0])
 
         addition_kwargs = {} if not is_chatgpt else {'system_prompt': args.system_prompt}
 
@@ -122,7 +151,7 @@ def main():
 
     with open(args.output_path, 'w') as fout:
         for pred in raw_preds:
-            fout.write(json.dumps(pred, cls=TurnIdEncoder)+"\n")
+            fout.write(json.dumps(pred, cls=TurnIdEncoder) + "\n")
     print(f'raw outputs saved to {args.output_path}')
 
 

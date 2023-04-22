@@ -22,14 +22,14 @@ def evaluate_prediction_exact_match(
     assert pred.datum_id == gold.datum_id, f"mismatched data: {pred}, {gold}"
     pred_lispress = "".join(try_round_trip(pred.lispress).split())
     gold_lispress = "".join(try_round_trip(gold.lispress).split())
-    if pred_lispress != gold_lispress:
-        print(
-            f"Misprediction on {gold.datum_id.dialogue_id}:{gold.datum_id.turn_index} | {gold.user_utterance}\nPred: {pred_lispress}\nGold: {gold_lispress}\n"
-        )
-    elif not gold.program_execution_oracle.refer_are_correct:
-        print(
-            f"Example {gold.datum_id.dialogue_id}:{gold.datum_id.turn_index} can't be correct because the refer call is not correct.\n"
-        )
+    # if pred_lispress != gold_lispress:
+    #     print(
+    #         f"Misprediction on {gold.datum_id.dialogue_id}:{gold.datum_id.turn_index} | {gold.user_utterance}\nPred: {pred_lispress}\nGold: {gold_lispress}\n"
+    #     )
+    # elif not gold.program_execution_oracle.refer_are_correct:
+    #     print(
+    #         f"Example {gold.datum_id.dialogue_id}:{gold.datum_id.turn_index} can't be correct because the refer call is not correct.\n"
+    #     )
     return (
         pred_lispress == gold_lispress
         and gold.program_execution_oracle.refer_are_correct,
