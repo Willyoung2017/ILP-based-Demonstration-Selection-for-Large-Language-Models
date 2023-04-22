@@ -128,7 +128,7 @@ def main():
         )
 
     raw_preds = []
-    for i in trange(0, len(eval_examples), args.batch_size):
+    for i in trange(0, len(eval_examples), args.batch_size, disable=True):
         j = min(i + args.batch_size, len(eval_examples))
         batch = eval_examples[i:j]
 

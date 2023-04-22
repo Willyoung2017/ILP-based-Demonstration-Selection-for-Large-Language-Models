@@ -149,15 +149,14 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
         self.diverse = diverse
         if not self.load_from_pre_comp:
             print("No pre-computed demo ids, do optimization from scratch")
-            self.tokenizer = tiktoken.encoding_for_model(engine)
+            tokenizer = tiktoken.encoding_for_model(engine)
             self.example_length = np.array(
-                [len(self.tokenizer.encode(f"source {ex.agent_utterance}\ntarget: {ex.agent_utterance}")) for ex in
+                [len(tokenizer.encode(f"source {ex.agent_utterance}\ntarget: {ex.agent_utterance}")) for ex in
                  examples])
             self.demo_ids = {}
             self.demo_uts = {}
         else:
             print(f"Load demo ids from: {self.pre_comp_id_path}")
-            self.tokenizer = None
             self.example_length = None
             self.demo_ids = json.load(open(self.pre_comp_id_path, 'r'))
             self.demo_uts = json.load(open(self.pre_comp_ut_path, 'r'))
