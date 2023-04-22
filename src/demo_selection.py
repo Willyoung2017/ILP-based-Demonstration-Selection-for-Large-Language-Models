@@ -122,11 +122,10 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
             if not self.diverse:
                 objective = cp.Maximize(similarity @ s)
             else:
-                similarity_mat = np.expand_dims(X.dot(y), axis=0)
-                diversity = similarity_mat.T @ similarity_mat
+                diversity = X @ X.T
                 objective = cp.Minimize(s @ diversity @ s.T - similarity @ s)
             prob = cp.Problem(objective, constraints)
-            result = prob.solve()
+            result = prob.solve(solver="SCIP")
             demo_ids = np.where(s.value > 0)[0].tolist()
             demo_ids.sort(key=lambda x: similarity[x])
             demo_ids = np.array(demo_ids)
