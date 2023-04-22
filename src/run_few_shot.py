@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant that can answer questions according to the OCR and caption of an image. You will be provided with demonstration example with similar input and output format. You should always predict an answer even if the nessacary context is not present.'
 
-
 EMB_OPTIONS = [
     'openai'
 ]
@@ -45,7 +44,7 @@ def main():
     parser.add_argument('-n', '--n_shot', default=24, type=int, help='number of demonstrations')
     parser.add_argument('-c', '--converter', default='question_only', help='example to code converter')
     parser.add_argument('-s', '--selector', default='fixed_random',
-                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con'],
+                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con', 'ip_cos_topk'],
                         help='demonstration example selector')
     parser.add_argument('-e', '--engine', default='code-davinci-002')
     parser.add_argument('--max_prompt_tokens', default=100, type=int)
@@ -53,6 +52,8 @@ def main():
     parser.add_argument('--batch_size', default=20, type=int)
     parser.add_argument('--batch_mode', default=True, type=bool_flag, nargs='?', const=True)
     parser.add_argument('--system_prompt', default=DEFAULT_SYSTEM_PROMPT)
+
+    parser.add_argument('-np', '--n_processes', default=30, type=int)
 
     # constraint opt args
     parser.add_argument("--max_len", default=1000, type=int, help="demo token len constraints")
@@ -104,12 +105,14 @@ def main():
         'l2_topk': L2TopKDemoSelection,
         'cos_topk': CosineTopKDemoSelection,
         'cos_topk_len_con': CosineTopKLengthConstrainedDemoSelection,
+        'ip_cos_topk': IPCosineTopKDemoSelection,
     }[args.selector]
 
     if "con" not in args.selector:
         selector = selector_class(
             examples=train_examples,
             n_shot=args.n_shot,
+            n_processes=args.n_processes,
         )
     else:
         pre_comp_dir = "data/pre_comp_demo"
@@ -120,7 +123,8 @@ def main():
             length=args.max_len,
             load_from_pre_comp=args.pre_comp,
             pre_comp_dir=pre_comp_dir,
-            diverse=args.diverse
+            diverse=args.diverse,
+            n_processes=args.n_processes,
         )
 
     raw_preds = []
@@ -128,9 +132,11 @@ def main():
         j = min(i + args.batch_size, len(eval_examples))
         batch = eval_examples[i:j]
 
+        batch_demos = selector.batch_get_demo(batch)
+
         prompts = [
-            converter.example2code(demos=selector.get_demo(example), target=example)
-            for example in tqdm(batch)
+            converter.example2code(demos=demos, target=example)
+            for demos, example in zip(batch_demos, batch)
         ]
 
         # print(prompts[0])

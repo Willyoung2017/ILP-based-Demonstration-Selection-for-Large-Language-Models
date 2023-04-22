@@ -7,5 +7,5 @@ sentence-transformers
 more-itertools
 cached-property
 jsons
-cvxpy
+cvxpy[SCIP]
 tiktoken

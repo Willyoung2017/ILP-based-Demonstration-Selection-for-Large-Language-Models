@@ -4,12 +4,27 @@ import numpy as np
 from typing import List
 import cvxpy as cp
 import tiktoken
+import multiprocessing as mp
+from tqdm import tqdm
 import json
 
 
 class BaseDemoSelection:
+    def __init__(self, n_processes: int = 1):
+        self.n_processes = n_processes
+
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
         raise NotImplementedError()
+
+    def batch_get_demo(self, targets: List[SMCExample]) -> List[List[SMCExample]]:
+        if self.n_processes <= 1:
+            return [self.get_demo(target) for target in targets]
+
+        with mp.Pool(self.n_processes) as pool:
+            return list(tqdm(
+                pool.imap(self.get_demo, targets),
+                disable=False, total=len(targets)
+            ))
 
 
 class FixedRandomDemoSelection(BaseDemoSelection):
@@ -21,7 +36,9 @@ class FixedRandomDemoSelection(BaseDemoSelection):
     #     33293
     # ]
 
-    def __init__(self, examples: List[SMCExample], n_shot: int = 5):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1):
+        super().__init__(n_processes=n_processes)
+
         assert isinstance(examples, list)
         assert len(examples) >= n_shot
 
@@ -39,7 +56,9 @@ class FixedRandomDemoSelection(BaseDemoSelection):
 
 
 class L2TopKDemoSelection(BaseDemoSelection):
-    def __init__(self, examples: List[SMCExample], n_shot: int = 5):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1):
+        super().__init__(n_processes=n_processes)
+
         assert isinstance(examples, list)
         assert len(examples) >= n_shot
 
@@ -60,7 +79,9 @@ class L2TopKDemoSelection(BaseDemoSelection):
 
 
 class CosineTopKDemoSelection(BaseDemoSelection):
-    def __init__(self, examples: List[SMCExample], n_shot: int = 5):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1):
+        super().__init__(n_processes=n_processes)
+
         assert isinstance(examples, list)
         assert len(examples) >= n_shot
 
@@ -80,10 +101,39 @@ class CosineTopKDemoSelection(BaseDemoSelection):
         return [self.examples[i] for i in demo_ids[::-1]]
 
 
+class IPCosineTopKDemoSelection(BaseDemoSelection):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1):
+        super().__init__(n_processes=n_processes)
+
+        assert isinstance(examples, list)
+        assert len(examples) >= n_shot
+
+        self.examples = examples
+        self.n_shot = n_shot
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+
+    def get_demo(self, target: SMCExample) -> List[SMCExample]:
+        assert isinstance(target.utterance_emb, np.ndarray)
+        X = self.X_emb
+        y = target.utterance_emb
+        similarity = X.dot(y) / np.sqrt((X ** 2).sum(1))
+        s = cp.Variable(X.shape[0], boolean=True)
+        constraints = [cp.sum(s) == self.n_shot]
+        objective = cp.Maximize(similarity @ s)
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver="SCIP")
+        demo_ids = np.nonzero(s.value > 0)[0]
+        assert demo_ids.shape[0] == self.n_shot
+        demo_ids = sorted(demo_ids, key=lambda i: similarity[i])
+        return [self.examples[i] for i in demo_ids]
+
+
 class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
     def __init__(self, examples: List[SMCExample], n_shot: int = 5, length: int = 100,
                  pre_comp_dir: str = "", load_from_pre_comp: bool = False, engine: str = "code-davinci-002",
-                 diverse: bool = False):
+                 diverse: bool = False, n_processes: int = 1):
+        super().__init__(n_processes=n_processes)
+
         assert isinstance(examples, list)
         assert len(examples) >= n_shot
 
@@ -100,7 +150,9 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
         if not self.load_from_pre_comp:
             print("No pre-computed demo ids, do optimization from scratch")
             self.tokenizer = tiktoken.encoding_for_model(engine)
-            self.example_length = np.array([len(self.tokenizer.encode(f"source {ex.agent_utterance}\ntarget: {ex.agent_utterance}")) for ex in examples])
+            self.example_length = np.array(
+                [len(self.tokenizer.encode(f"source {ex.agent_utterance}\ntarget: {ex.agent_utterance}")) for ex in
+                 examples])
             self.demo_ids = {}
             self.demo_uts = {}
         else:
