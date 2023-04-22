@@ -36,7 +36,8 @@ class SMCExample:
     user_utterance: str
     # the next agent utterance
     agent_utterance: str
-    embedding: Optional[np.ndarray] = None
+    utterance_emb: Optional[np.ndarray] = None
+    plan_emb: Optional[np.ndarray] = None
 
 
 class SMCDataset:
@@ -76,10 +77,13 @@ class SMCDataset:
         return res
 
     def _load_embeddings(self, emb_name) -> None:
-        embeddings = np.load(f'data/embeddings/{emb_name}.npy')
-        for examples in [self.train, self.dev]:
-            for ex in examples:
-                ex.embedding = embeddings[ex.datum_id]
+        utterance_emb = np.load(f'data/embeddings/{emb_name}_utterance.npy')
+        plan_emb = np.load(f'data/embeddings/{emb_name}_plan.npy')
+        examples = list(self.train) + list(self.dev) + list(self.test)
+        assert len(examples) == utterance_emb.shape[0] == plan_emb.shape[0]
+        for i, ex in enumerate(examples):
+            ex.utterance_emb = utterance_emb[i]
+            ex.plan_emb = plan_emb[i]
 
     def train_examples(self) -> Iterator[SMCExample]:
         for example in self.train:

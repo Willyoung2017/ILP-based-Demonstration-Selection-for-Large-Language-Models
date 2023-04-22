@@ -15,23 +15,14 @@ DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant that can answer questions a
 # DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.'
 
 EMB_OPTIONS = [
-    'openai_question',
-    'openai_caption',
-    'openai_ocr',
-    'openai_caption_question',
-    'openai_caption_ocr_question',
-    'sbert_question',
-    'sbert_caption',
-    'sbert_ocr',
-    'sbert_caption_question',
-    'sbert_caption_ocr_question'
+    'openai'
 ]
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/source_domain_with_target_num0')
-    parser.add_argument('--emb', default=None, choices=EMB_OPTIONS)
+    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/source_domain_with_target_num32')
+    parser.add_argument('--emb', default='openai', choices=EMB_OPTIONS)
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('-n', '--n_shot', default=5, type=int, help='number of demonstrations')
