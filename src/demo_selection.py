@@ -42,18 +42,18 @@ class L2TopKDemoSelection(BaseDemoSelection):
 
         self.examples = examples
         self.n_shot = n_shot
-        self.X_emb = np.array([ex.embedding for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
 
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
-        assert isinstance(target.embedding, np.ndarray)
+        assert isinstance(target.utterance_emb, np.ndarray)
         X = self.X_emb
-        y = target.embedding
+        y = target.utterance_emb
         # dist[i] = |X[i] - y|^2
         #         = |X[i]|^2 - 2 * X[i]^T y + |y|^2
         #         ~ |X[i]|^2 - 2 * X[i]^T y
         dist = (X ** 2).sum(1) - 2 * X.dot(y)
         demo_ids = np.argsort(dist)[:self.n_shot]
-        return [self.examples[i] for i in demo_ids]
+        return [self.examples[i] for i in demo_ids[::-1]]
 
 
 class CosineTopKDemoSelection(BaseDemoSelection):
@@ -63,15 +63,15 @@ class CosineTopKDemoSelection(BaseDemoSelection):
 
         self.examples = examples
         self.n_shot = n_shot
-        self.X_emb = np.array([ex.embedding for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
 
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
-        assert isinstance(target.embedding, np.ndarray)
+        assert isinstance(target.utterance_emb, np.ndarray)
         X = self.X_emb
-        y = target.embedding
+        y = target.utterance_emb
         # dist[i] = -cosine(X[i], y)
         #         = - X[i]^T y / |X[i]| |y|
         #         ~ - X[i]^T y / |X[i]|
         dist = -X.dot(y) / np.sqrt((X ** 2).sum(1))
         demo_ids = np.argsort(dist)[:self.n_shot]
-        return [self.examples[i] for i in demo_ids]
+        return [self.examples[i] for i in demo_ids[::-1]]
