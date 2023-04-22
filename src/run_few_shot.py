@@ -26,7 +26,7 @@ def main():
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('-n', '--n_shot', default=5, type=int, help='number of demonstrations')
-    parser.add_argument('-c', '--converter', default='python_question_only', help='example to code converter')
+    parser.add_argument('-c', '--converter', default='question_only', help='example to code converter')
     parser.add_argument('-s', '--selector', default='fixed_random',
                         choices=['fixed_random', 'l2_topk', 'cos_topk'],
                         help='demonstration example selector')
