@@ -38,7 +38,7 @@ EVAL_SUBSETS = [
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smc_data_dir', default='../data/smcalflow_cs/calflow.orgchart.event_create/source_domain_with_target_num32')
+    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/source_domain_with_target_num32')
     parser.add_argument('--emb', default='openai', choices=EMB_OPTIONS)
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
@@ -89,7 +89,7 @@ def main():
         raise ValueError(f'Unknown eval subset {args.eval_subset}')
 
     if args.eval_subset not in ('val', 'test'):
-        with open('../data/eval_subsets.json') as fin:
+        with open('data/eval_subsets.json') as fin:
             eval_subsets = json.load(fin)
         turn_ids = eval_subsets[args.eval_subset]
         turn_ids = {(d["dialogue_id"], d["turn_index"]) for d in turn_ids}
@@ -112,7 +112,7 @@ def main():
             n_shot=args.n_shot,
         )
     else:
-        pre_comp_dir = "../data/pre_comp_demo"
+        pre_comp_dir = "data/pre_comp_demo"
         os.makedirs(pre_comp_dir, exist_ok=True)
         selector = selector_class(
             examples=train_examples,
@@ -176,7 +176,7 @@ def main():
     print(f'raw outputs saved to {args.output_path}')
 
     if "con" in args.selector and not args.pre_comp:
-        print(f'pre_comp demos saved to ../data/pre_comp_demo')
+        print(f'pre_comp demos saved to data/pre_comp_demo')
         selector.save_demos()
 
 

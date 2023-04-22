@@ -80,8 +80,8 @@ class SMCDataset:
         return res
 
     def _load_embeddings(self, emb_name) -> None:
-        utterance_emb = np.load(f'../data/embeddings/{emb_name}_utterance.npy')
-        plan_emb = np.load(f'../data/embeddings/{emb_name}_plan.npy')
+        utterance_emb = np.load(f'data/embeddings/{emb_name}_utterance.npy')
+        plan_emb = np.load(f'data/embeddings/{emb_name}_plan.npy')
         examples = list(self.train) + list(self.dev) + list(self.test)
         assert len(examples) == utterance_emb.shape[0] == plan_emb.shape[0]
         for i, ex in enumerate(examples):
