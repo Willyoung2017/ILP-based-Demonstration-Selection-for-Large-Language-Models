@@ -143,6 +143,7 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
         self.n_shot = n_shot
         self.length = length
         self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+        self.out_emb = np.array([ex.plan_emb for ex in examples], dtype=np.float32)
         fn = f"consine_topk_len_con_n{n_shot}_len{length}_diverse{diverse}"
         self.pre_comp_id_path = f"{pre_comp_dir}/{fn}_id.json"
         self.pre_comp_ut_path = f"{pre_comp_dir}/{fn}_ut.json"
@@ -177,8 +178,8 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length @ s <= self.length]
             else:
                 s = cp.Variable(100, boolean=True)
-                diversity = cp.psd_wrap(0.01 * X[top_sim_ids] @ X[top_sim_ids].T)
-                objective = cp.Minimize(cp.quad_form(s, diversity) - similarity[top_sim_ids] @ s)
+                diversity = cp.psd_wrap(self.out_emb[top_sim_ids] @ self.out_emb[top_sim_ids].T)
+                objective = cp.Minimize(0.01 * cp.quad_form(s, diversity) - similarity[top_sim_ids] @ s)
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length[top_sim_ids] @ s <= self.length]
 
             prob = cp.Problem(objective, constraints)
