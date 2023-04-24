@@ -79,7 +79,8 @@ class L2TopKDemoSelection(BaseDemoSelection):
 
 
 class CosineTopKDemoSelection(BaseDemoSelection):
-    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5, n_processes: int = 1,
+                 whiten: bool = False):
         super().__init__(n_processes=n_processes)
 
         assert isinstance(examples, list)
@@ -89,16 +90,22 @@ class CosineTopKDemoSelection(BaseDemoSelection):
         self.n_shot = n_shot
         self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
 
+        if whiten:
+            u, s, vt = np.linalg.svd(self.X_emb, full_matrices=False)
+            self.W_whiten = vt.T.dot(np.diag(1 / s)).dot(vt)
+
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
         assert isinstance(target.utterance_emb, np.ndarray)
         X = self.X_emb
         y = target.utterance_emb
+        if hasattr(self, "W_whiten"):
+            X = X.dot(self.W_whiten)
+            y = y.dot(self.W_whiten)
         # dist[i] = -cosine(X[i], y)
         #         = - X[i]^T y / |X[i]| |y|
         #         ~ - X[i]^T y / |X[i]|
         dist = -X.dot(y) / np.sqrt((X ** 2).sum(1))
         demo_ids = np.argsort(dist)[:self.n_shot]
-        print(demo_ids[::-1])
         return [self.examples[i] for i in demo_ids[::-1]]
 
 
@@ -208,7 +215,8 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
                                      'agent_utterance': d_eg.agent_utterance,
                                      'user_utterance': d_eg.user_utterance})
             demo_id_div = np.sum(self.out_emb[demo_ids] @ self.out_emb[demo_ids].T)
-            return [self.examples[i] for i in demo_ids], target_key, (demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
+            return [self.examples[i] for i in demo_ids], target_key, (
+            demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
         else:
             demo_ids = np.array(self.demo_ids[target_key])
             return [self.examples[i] for i in demo_ids]
@@ -272,7 +280,8 @@ class CosineTopKLengthConstrainedGreedyDemoSelection(BaseDemoSelection):
                                      'agent_utterance': d_eg.agent_utterance,
                                      'user_utterance': d_eg.user_utterance})
             demo_id_div = np.sum(self.out_emb[demo_ids] @ self.out_emb[demo_ids].T)
-            return [self.examples[i] for i in demo_ids], target_key, (demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
+            return [self.examples[i] for i in demo_ids], target_key, (
+            demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
         else:
             demo_ids = np.array(self.demo_ids[target_key])
             return [self.examples[i] for i in demo_ids]
@@ -281,3 +290,67 @@ class CosineTopKLengthConstrainedGreedyDemoSelection(BaseDemoSelection):
         with open(self.pre_comp_id_path, 'w') as f_id, open(self.pre_comp_ut_path, 'w') as f_ut:
             json.dump(all_demo_ids, f_id)
             json.dump(all_demo_uts, f_ut)
+
+
+class MIQPDemoSelection(BaseDemoSelection):
+    def __init__(self, examples: List[SMCExample], n_shot: int = 5,
+                 n_processes: int = 1, top_sim: int = 1000, div_alpha: float = 1e-2,
+                 whiten: bool = True):
+        super().__init__(n_processes=n_processes)
+        assert isinstance(examples, list)
+        assert len(examples) >= n_shot
+
+        self.examples = examples
+        self.n_shot = n_shot
+        self.top_sim = top_sim
+        self.div_alpha = div_alpha
+        self.whiten = whiten
+
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
+        self.Z_emb = np.array([ex.plan_emb for ex in examples], dtype=np.float64)
+
+        if whiten:
+            print('Whitening the embeddings')
+            u, s, vt = np.linalg.svd(self.X_emb, full_matrices=False)
+            self.Xw = vt.T.dot(np.diag(1 / s)).dot(vt)
+            self.X_emb = self.X_emb.dot(self.Xw)
+            u, s, vt = np.linalg.svd(self.Z_emb, full_matrices=False)
+            self.Zw = vt.T.dot(np.diag(1 / s)).dot(vt)
+            self.Z_emb = self.Z_emb.dot(self.Zw)
+
+        self.X_emb = self._normalize(self.X_emb)
+        self.Z_emb = self._normalize(self.Z_emb)
+
+    @staticmethod
+    def _normalize(X):
+        norms = np.sqrt((X ** 2).sum(-1, keepdims=True))
+        norms[norms == 0] = 1e-10
+        return X / norms
+
+    def get_demo(self, target: SMCExample) -> List[SMCExample]:
+        assert isinstance(target.utterance_emb, np.ndarray)
+        assert isinstance(target.plan_emb, np.ndarray)
+
+        X, Z = self.X_emb, self.Z_emb
+
+        y = target.utterance_emb
+        if self.whiten:
+            y = y.dot(self.Xw)
+        y = self._normalize(y)
+
+        dist = -X.dot(y)
+        top_sim_ids = np.argsort(dist)[:self.top_sim]
+        Z1 = Z[top_sim_ids]
+        dist1 = dist[top_sim_ids]
+
+        s = cp.Variable(self.top_sim, boolean=True)
+        Q = cp.psd_wrap(Z1 @ Z1.T)
+        objective = cp.Minimize(self.div_alpha * cp.quad_form(s, Q) + dist1 @ s)
+        constraints = [cp.sum(s) <= self.n_shot]
+
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver="SCIP")
+
+        demo_ids = top_sim_ids[np.nonzero(s.value > 0)[0]].tolist()
+        demo_ids.sort(key=lambda x: -dist[x])
+        return [self.examples[i] for i in demo_ids]

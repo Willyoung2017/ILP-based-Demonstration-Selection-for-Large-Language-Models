@@ -44,7 +44,8 @@ def main():
     parser.add_argument('-n', '--n_shot', default=24, type=int, help='number of demonstrations')
     parser.add_argument('-c', '--converter', default='question_only', help='example to code converter')
     parser.add_argument('-s', '--selector', default='fixed_random',
-                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con', 'ip_cos_topk',  'cos_topk_len_con_greedy'],
+                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con', 'ip_cos_topk',
+                                 'cos_topk_len_con_greedy', 'miqp'],
                         help='demonstration example selector')
     parser.add_argument('-e', '--engine', default='code-davinci-002')
     parser.add_argument('--max_prompt_tokens', default=100, type=int)
@@ -54,6 +55,8 @@ def main():
     parser.add_argument('--system_prompt', default=DEFAULT_SYSTEM_PROMPT)
 
     parser.add_argument('-np', '--n_processes', default=30, type=int)
+
+    parser.add_argument('--whiten', action="store_true")
 
     # constraint opt args
     parser.add_argument("--max_len", default=1000, type=int, help="demo token len constraints")
@@ -109,9 +112,26 @@ def main():
         'cos_topk_len_con': CosineTopKLengthConstrainedDemoSelection,
         'ip_cos_topk': IPCosineTopKDemoSelection,
         'cos_topk_len_con_greedy': CosineTopKLengthConstrainedGreedyDemoSelection,
+        'miqp': MIQPDemoSelection,
     }[args.selector]
 
-    if "con" not in args.selector:
+    if args.selector == 'miqp':
+        selector = selector_class(
+            examples=train_examples,
+            n_shot=args.n_shot,
+            n_processes=args.n_processes,
+            top_sim=args.top_sim,
+            div_alpha=args.div_alpha,
+            whiten=args.whiten
+        )
+    elif args.selector == 'cos_topk':
+        selector = selector_class(
+            examples=train_examples,
+            n_shot=args.n_shot,
+            n_processes=args.n_processes,
+            whiten=args.whiten
+        )
+    elif "con" not in args.selector:
         selector = selector_class(
             examples=train_examples,
             n_shot=args.n_shot,
