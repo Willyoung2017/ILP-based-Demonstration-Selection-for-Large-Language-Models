@@ -346,7 +346,7 @@ class MIQPDemoSelection(BaseDemoSelection):
         s = cp.Variable(self.top_sim, boolean=True)
         Q = cp.psd_wrap(Z1 @ Z1.T)
         objective = cp.Minimize(self.div_alpha * cp.quad_form(s, Q) + dist1 @ s)
-        constraints = [cp.sum(s) <= self.n_shot]
+        constraints = [cp.sum(s) == self.n_shot]
 
         prob = cp.Problem(objective, constraints)
         prob.solve(solver="SCIP")
