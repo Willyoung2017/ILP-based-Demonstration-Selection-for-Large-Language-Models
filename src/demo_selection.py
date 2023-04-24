@@ -177,13 +177,24 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length @ s <= self.length]
             else:
                 s = cp.Variable(100, boolean=True)
-                diversity = cp.psd_wrap(X[top_sim_ids] @ X[top_sim_ids].T)
+                diversity = cp.psd_wrap(0.01 * X[top_sim_ids] @ X[top_sim_ids].T)
                 objective = cp.Minimize(cp.quad_form(s, diversity) - similarity[top_sim_ids] @ s)
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length[top_sim_ids] @ s <= self.length]
+
             prob = cp.Problem(objective, constraints)
             result = prob.solve(solver="SCIP")
-            demo_ids = np.where(s.value > 0)[0]
-            if self.diverse:
+            failed = False
+            if s.value is None:
+                assert self.diverse
+                failed = True
+                print("failed to solve MIQP, use MIP instead")
+                s = cp.Variable(X.shape[0], boolean=True)
+                objective = cp.Maximize(similarity @ s)
+                constraints = [cp.sum(s) <= self.n_shot, self.example_length @ s <= self.length]
+                prob = cp.Problem(objective, constraints)
+                result = prob.solve(solver="SCIP")
+            demo_ids = np.where(s.value > 0)[0].tolist()
+            if self.diverse and not failed:
                 demo_ids = top_sim_ids[demo_ids].tolist()
             demo_ids.sort(key=lambda x: similarity[x])
             demo_ids = np.array(demo_ids)
