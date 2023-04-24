@@ -207,7 +207,8 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
                 all_demo_uts.append({'datum_id': d_eg.datum_id.to_dict(),
                                      'agent_utterance': d_eg.agent_utterance,
                                      'user_utterance': d_eg.user_utterance})
-            return [self.examples[i] for i in demo_ids], target_key, demo_ids.tolist(), all_demo_uts
+            demo_id_div = np.sum(self.out_emb[demo_ids] @ self.out_emb[demo_ids].T)
+            return [self.examples[i] for i in demo_ids], target_key, (demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
         else:
             demo_ids = np.array(self.demo_ids[target_key])
             return [self.examples[i] for i in demo_ids]
@@ -231,6 +232,7 @@ class CosineTopKLengthConstrainedGreedyDemoSelection(BaseDemoSelection):
         self.n_shot = n_shot
         self.length = length
         self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
+        self.out_emb = np.array([ex.plan_emb for ex in examples], dtype=np.float64)
         fn = f"consine_topk_len_con_greedy_n{n_shot}_len{length}_diverse{diverse}"
         self.pre_comp_id_path = f"{pre_comp_dir}/{fn}_id.json"
         self.pre_comp_ut_path = f"{pre_comp_dir}/{fn}_ut.json"
@@ -269,7 +271,8 @@ class CosineTopKLengthConstrainedGreedyDemoSelection(BaseDemoSelection):
                 all_demo_uts.append({'datum_id': d_eg.datum_id.to_dict(),
                                      'agent_utterance': d_eg.agent_utterance,
                                      'user_utterance': d_eg.user_utterance})
-            return [self.examples[i] for i in demo_ids], target_key, demo_ids.tolist(), all_demo_uts
+            demo_id_div = np.sum(self.out_emb[demo_ids] @ self.out_emb[demo_ids].T)
+            return [self.examples[i] for i in demo_ids], target_key, (demo_ids.tolist(), similarity[demo_ids].tolist(), demo_id_div), all_demo_uts
         else:
             demo_ids = np.array(self.demo_ids[target_key])
             return [self.examples[i] for i in demo_ids]
