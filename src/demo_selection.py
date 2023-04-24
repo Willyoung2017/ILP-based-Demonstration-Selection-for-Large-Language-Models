@@ -142,8 +142,8 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
         self.examples = examples
         self.n_shot = n_shot
         self.length = length
-        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
-        self.out_emb = np.array([ex.plan_emb for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
+        self.out_emb = np.array([ex.plan_emb for ex in examples], dtype=np.float64)
         fn = f"consine_topk_len_con_n{n_shot}_len{length}_diverse{diverse}"
         self.pre_comp_id_path = f"{pre_comp_dir}/{fn}_id.json"
         self.pre_comp_ut_path = f"{pre_comp_dir}/{fn}_ut.json"
@@ -230,7 +230,7 @@ class CosineTopKLengthConstrainedGreedyDemoSelection(BaseDemoSelection):
         self.examples = examples
         self.n_shot = n_shot
         self.length = length
-        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
         fn = f"consine_topk_len_con_greedy_n{n_shot}_len{length}_diverse{diverse}"
         self.pre_comp_id_path = f"{pre_comp_dir}/{fn}_id.json"
         self.pre_comp_ut_path = f"{pre_comp_dir}/{fn}_ut.json"
