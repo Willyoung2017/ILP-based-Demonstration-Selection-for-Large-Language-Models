@@ -64,7 +64,7 @@ class L2TopKDemoSelection(BaseDemoSelection):
 
         self.examples = examples
         self.n_shot = n_shot
-        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
 
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
         assert isinstance(target.utterance_emb, np.ndarray)
@@ -87,7 +87,7 @@ class CosineTopKDemoSelection(BaseDemoSelection):
 
         self.examples = examples
         self.n_shot = n_shot
-        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
 
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
         assert isinstance(target.utterance_emb, np.ndarray)
@@ -111,7 +111,7 @@ class IPCosineTopKDemoSelection(BaseDemoSelection):
 
         self.examples = examples
         self.n_shot = n_shot
-        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float32)
+        self.X_emb = np.array([ex.utterance_emb for ex in examples], dtype=np.float64)
 
     def get_demo(self, target: SMCExample) -> List[SMCExample]:
         assert isinstance(target.utterance_emb, np.ndarray)
