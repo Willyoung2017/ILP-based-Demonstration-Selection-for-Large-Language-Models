@@ -37,7 +37,7 @@ EVAL_SUBSETS = [
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/calflow.orgchart.event_create/source_domain_with_target_num32')
+    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/source_domain_with_target_num32')
     parser.add_argument('--emb', default='openai', choices=EMB_OPTIONS)
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
@@ -59,6 +59,8 @@ def main():
     parser.add_argument("--max_len", default=1000, type=int, help="demo token len constraints")
     parser.add_argument("--pre_comp", action="store_true", help="whether use pre-computed demo ids")
     parser.add_argument("--diverse", action="store_true", help="whether add diversity constraints")
+    parser.add_argument("--top_sim", default=100, type=int, help="top similar examples use for QP")
+    parser.add_argument("--div_alpha", default=1e-2, type=float, help="weight on QP")
 
     args = parser.parse_args()
 
@@ -126,6 +128,8 @@ def main():
             pre_comp_dir=pre_comp_dir,
             diverse=args.diverse,
             n_processes=args.n_processes,
+            top_sim=args.top_sim,
+            div_alpha=args.div_alpha
         )
 
     raw_preds = []

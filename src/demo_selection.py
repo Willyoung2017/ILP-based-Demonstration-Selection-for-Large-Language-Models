@@ -133,7 +133,7 @@ class IPCosineTopKDemoSelection(BaseDemoSelection):
 class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
     def __init__(self, examples: List[SMCExample], n_shot: int = 5, length: int = 100,
                  pre_comp_dir: str = "", load_from_pre_comp: bool = False, engine: str = "code-davinci-002",
-                 diverse: bool = False, n_processes: int = 1):
+                 diverse: bool = False, n_processes: int = 1, top_sim=100, div_alpha=1e-2):
         super().__init__(n_processes=n_processes)
 
         assert isinstance(examples, list)
@@ -150,6 +150,8 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
         self.pre_comp_dir = pre_comp_dir
         self.load_from_pre_comp = load_from_pre_comp
         self.diverse = diverse
+        self.top_sim = top_sim
+        self.div_alpha = div_alpha
         if not self.load_from_pre_comp:
             print("No pre-computed demo ids, do optimization from scratch")
             tokenizer = tiktoken.encoding_for_model(engine)
@@ -171,15 +173,15 @@ class CosineTopKLengthConstrainedDemoSelection(BaseDemoSelection):
             X = self.X_emb
             y = target.utterance_emb
             similarity = X.dot(y) / np.sqrt((X ** 2).sum(1))
-            top_sim_ids = np.flip(np.argsort(similarity))[:100]
+            top_sim_ids = np.flip(np.argsort(similarity))[:self.top_sim]
             if not self.diverse:
                 s = cp.Variable(X.shape[0], boolean=True)
                 objective = cp.Maximize(similarity @ s)
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length @ s <= self.length]
             else:
-                s = cp.Variable(100, boolean=True)
+                s = cp.Variable(self.top_sim, boolean=True)
                 diversity = cp.psd_wrap(self.out_emb[top_sim_ids] @ self.out_emb[top_sim_ids].T)
-                objective = cp.Minimize(0.01 * cp.quad_form(s, diversity) - similarity[top_sim_ids] @ s)
+                objective = cp.Minimize(self.div_alpha * cp.quad_form(s, diversity) - similarity[top_sim_ids] @ s)
                 constraints = [cp.sum(s) <= self.n_shot, self.example_length[top_sim_ids] @ s <= self.length]
 
             prob = cp.Problem(objective, constraints)
