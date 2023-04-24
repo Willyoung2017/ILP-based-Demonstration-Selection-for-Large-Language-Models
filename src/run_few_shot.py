@@ -37,14 +37,14 @@ EVAL_SUBSETS = [
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/source_domain_with_target_num32')
+    parser.add_argument('--smc_data_dir', default='data/smcalflow_cs/calflow.orgchart.event_create/source_domain_with_target_num32')
     parser.add_argument('--emb', default='openai', choices=EMB_OPTIONS)
     parser.add_argument('-o', '--output_path', default='outputs/raw/raw_dev_pred.json')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('-n', '--n_shot', default=24, type=int, help='number of demonstrations')
     parser.add_argument('-c', '--converter', default='question_only', help='example to code converter')
     parser.add_argument('-s', '--selector', default='fixed_random',
-                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con', 'ip_cos_topk'],
+                        choices=['fixed_random', 'l2_topk', 'cos_topk', 'cos_topk_len_con', 'ip_cos_topk',  'cos_topk_len_con_greedy'],
                         help='demonstration example selector')
     parser.add_argument('-e', '--engine', default='code-davinci-002')
     parser.add_argument('--max_prompt_tokens', default=100, type=int)
@@ -106,6 +106,7 @@ def main():
         'cos_topk': CosineTopKDemoSelection,
         'cos_topk_len_con': CosineTopKLengthConstrainedDemoSelection,
         'ip_cos_topk': IPCosineTopKDemoSelection,
+        'cos_topk_len_con_greedy': CosineTopKLengthConstrainedGreedyDemoSelection,
     }[args.selector]
 
     if "con" not in args.selector:
@@ -128,11 +129,19 @@ def main():
         )
 
     raw_preds = []
+    demo_ids, demo_uts = {}, {}
     for i in trange(0, len(eval_examples), args.batch_size, disable=True):
         j = min(i + args.batch_size, len(eval_examples))
         batch = eval_examples[i:j]
 
         batch_demos = selector.batch_get_demo(batch)
+        batch_demos_tmp = []
+        if isinstance(batch_demos[0], tuple):
+            for bd in batch_demos:
+                batch_demos_tmp.append(bd[0])
+                demo_ids[bd[1]] = bd[2]
+                demo_uts[bd[1]] = bd[3]
+            batch_demos = batch_demos_tmp
 
         prompts = [
             converter.example2code(demos=demos, target=example)
@@ -183,7 +192,7 @@ def main():
 
     if "con" in args.selector and not args.pre_comp:
         print(f'pre_comp demos saved to data/pre_comp_demo')
-        selector.save_demos()
+        selector.save_demos(demo_ids, demo_uts)
 
 
 if __name__ == '__main__':
